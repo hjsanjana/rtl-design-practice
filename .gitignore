@@ -1,0 +1,35 @@
+# Simulation output
+*.vcd
+*.wlf
+*.ucdb
+*.log
+*.vstf
+work/
+sim/
+transcript
+
+# Vivado
+*.xpr
+*.bit
+*.ltx
+*.runs/
+*.cache/
+*.hw/
+*.ip_user_files/
+*.sim/
+.Xil/
+
+# ModelSim / QuestaSim
+vsim.wlf
+modelsim.ini
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor
+*.swp
+*.swo
+.vscode/
+.idea/
