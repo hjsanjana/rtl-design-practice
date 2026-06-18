@@ -1,70 +1,231 @@
-# RISC-V 5-Stage Pipelined CPU (SystemVerilog + UVM)
+# 🧠 RISC-V 5-Stage Pipelined CPU
 
-A small RISC-V CPU core, written from scratch in SystemVerilog, with a UVM testbench that checks every single instruction it executes against a software reference model.
+### *Built from scratch in SystemVerilog — and proven correct with a UVM testbench*
 
-## What this project actually is, in plain words
+![Language](https://img.shields.io/badge/Language-SystemVerilog-1e90ff?style=for-the-badge)
+![ISA](https://img.shields.io/badge/ISA-RISC--V%20(RV32I)-orange?style=for-the-badge)
+![Verification](https://img.shields.io/badge/Verification-UVM-9b59b6?style=for-the-badge)
+![Status](https://img.shields.io/badge/Status-Self--Checking%20%26%20Passing-2ecc71?style=for-the-badge)
 
-Think of a CPU as a tiny assembly line. An instruction comes in one end (as 32 bits of binary), and a result comes out the other end (a register gets updated, or memory gets written). This project builds that assembly line — a **classic 5-stage pipeline** — and then builds a separate "checker" that watches everything the CPU does and screams if it ever gets the wrong answer.
+---
 
-It only supports a small, hand-picked subset of the RISC-V instruction set (the RV32I base), enough to do real work: arithmetic, loads/stores, branches, and jumps. That's intentional — it's a learning-sized core, not a production one.
+## 🪄 Explain it like I'm not an engineer
 
-## Files
+Imagine a CPU as a **tiny, very literal-minded factory worker**. You hand it instructions written as patterns of 1s and 0s, and it does *exactly* what they say — add these two numbers, save this value, jump somewhere else if two numbers are equal.
 
-| File | What it is |
+This repository contains:
+
+1. 🏭 **A CPU** (`riscv_core.sv`) — the actual "factory worker" that reads instructions and executes them, five at a time, assembly-line style.
+2. 🕵️ **A robotic inspector** (the UVM testbench) — that watches everything the factory worker does, independently re-does the math itself, and raises an alarm the instant the two disagree.
+
+If you've ever double-checked a calculator's answer by doing the sum on paper yourself — that's exactly what the inspector does, every single instruction, automatically, thousands of times a second.
+
+---
+
+## 🗺️ The big picture (one diagram)
+
+```mermaid
+flowchart LR
+    A["📝 Instructions\n(binary code)"] --> B["🏭 RISC-V CPU\n(riscv_core.sv)"]
+    B --> C["📤 Results\n(registers / memory)"]
+    B -.watched by.-> D["🕵️ UVM Testbench\n(riscv_uvm_pkg.sv)"]
+    D --> E{"✅ Match\nreference model?"}
+    E -->|Yes| F["🟢 PASS"]
+    E -->|No| G["🔴 FAIL + exact error report"]
+
+    style A fill:#dff5ff,stroke:#1e90ff,color:#000
+    style B fill:#fff3cd,stroke:#e6a700,color:#000
+    style C fill:#dff5ff,stroke:#1e90ff,color:#000
+    style D fill:#f0e6ff,stroke:#9b59b6,color:#000
+    style F fill:#d4f8d4,stroke:#2ecc71,color:#000
+    style G fill:#ffd6d6,stroke:#e74c3c,color:#000
+```
+
+---
+
+## 📂 What's in this folder
+
+| File | Plain-English role |
 |---|---|
-| [riscv_pkg.sv](riscv_pkg.sv) | Helper functions: instruction encoders (build a 32-bit instruction from its fields) and decoders (pull immediate values back out of an instruction). Shared by both the CPU and the testbench. |
-| [riscv_core.sv](riscv_core.sv) | The CPU itself — the pipeline, the register file, the ALU, hazard detection, and a handful of runtime assertions. |
-| [cpu_mem_if.sv](cpu_mem_if.sv) | A SystemVerilog `interface` that bundles together instruction memory, data memory, and all the wires connecting the CPU to the outside world. Acts as the "motherboard" the CPU plugs into. |
-| [riscv_uvm_pkg.sv](riscv_uvm_pkg.sv) | The UVM (Universal Verification Methodology) testbench: generates instruction streams, drives them into the CPU, watches what comes out, and compares it against a golden reference model. |
-| [tb_top.sv](tb_top.sv) | The top-level module that wires the CPU and the interface together and kicks off the UVM test. |
+| 🧮 [`riscv_pkg.sv`](riscv_pkg.sv) | A toolbox of helper functions — builds 32-bit instructions and decodes their hidden fields (like a translator between "human assembly" and "raw binary"). |
+| 🏭 [`riscv_core.sv`](riscv_core.sv) | **The CPU itself.** The pipeline, the register file (32 numbered storage slots), the ALU (the calculator), and built-in self-checks. |
+| 🔌 [`cpu_mem_if.sv`](cpu_mem_if.sv) | The "motherboard" — instruction memory + data memory + all the wires the CPU plugs into. |
+| 🕵️ [`riscv_uvm_pkg.sv`](riscv_uvm_pkg.sv) | The robotic inspector — generates programs, feeds them in, watches the output, and judges pass/fail. |
+| 🔝 [`tb_top.sv`](tb_top.sv) | The "power button" — wires the CPU to the motherboard and starts the inspector running. |
 
-## Core concepts, briefly explained
+---
 
-**Pipelining.** Instead of finishing one instruction completely before starting the next, the CPU breaks instruction processing into 5 stages — Fetch, Decode, Execute, Memory, Writeback — and runs up to 5 instructions at once, each at a different stage, like a factory line. This is *much* faster than doing one instruction start-to-finish before starting the next, but it introduces tricky problems called **hazards**.
+## 🏭 Concept #1 — Pipelining (the assembly line)
 
-**Hazards, and how this CPU handles them:**
-- *Data hazard (RAW — read after write)*: instruction B needs a value that instruction A hasn't finished computing yet. Fixed here with **forwarding** — the result is fed directly from a later pipeline stage straight back into the stage that needs it, instead of waiting for it to be written to the register file.
-- *Load-use hazard*: a special, unavoidable case of the above — when B needs a value that A just loaded from memory, forwarding alone isn't fast enough, so the pipeline **stalls** B for one cycle until the loaded value is ready.
-- *Control hazard*: a branch or jump changes the program counter (PC), but the pipeline has already started fetching the instructions right after it, assuming no jump would happen. When a branch *is* taken, those wrongly-fetched instructions are **flushed** (discarded) and the PC is **redirected** to the correct target.
+A non-pipelined CPU finishes one instruction *completely* before even looking at the next one — like one chef cooking an entire meal alone, start to finish, before starting the next order.
 
-**Exceptions/traps.** An illegal instruction or an `ecall` (a deliberate "stop/trap" instruction) causes the CPU to halt cleanly rather than execute garbage.
+This CPU instead uses **5 stages**, like 5 chefs on an assembly line, each doing one job, passing the dish down the line. While chef 5 plates dish #1, chef 1 has already started chopping for dish #5.
 
-**UVM (Universal Verification Methodology).** A standardized way to build testbenches out of reusable, swappable building blocks: a *sequencer* (decides what instructions to send), a *driver* (loads them into memory and resets the CPU), a *monitor* (watches the CPU's outputs), a *scoreboard* (the judge), and a *coverage collector* (tracks which instruction types/cases have actually been exercised).
+```mermaid
+flowchart LR
+    subgraph Cycle["⏱️ One pipeline, 5 instructions in flight at once"]
+        direction LR
+        IF["1️⃣ FETCH\nGet the instruction\nfrom memory"] --> ID["2️⃣ DECODE\nFigure out what\nit means"]
+        ID --> EX["3️⃣ EXECUTE\nDo the math\n(ALU / branch)"]
+        EX --> MEM["4️⃣ MEMORY\nRead/write\ndata memory"]
+        MEM --> WB["5️⃣ WRITEBACK\nSave result into\na register"]
+    end
 
-**Self-checking testbench / scoreboard.** Rather than eyeballing waveforms, the testbench keeps its own simple Python-like model of the CPU's register file and memory in plain SystemVerilog, written independently of the actual CPU logic. Every time the real CPU "retires" (finishes) an instruction, the scoreboard re-computes by hand what *should* have happened and compares it bit-for-bit against what the CPU actually did. Any mismatch is flagged immediately with the exact PC and instruction that caused it.
-
-## How the project flows, end to end
-
-1. **`tb_top.sv`** boots the simulation: it instantiates the `cpu_mem_if` interface, wires it to `riscv_core` (the DUT — device under test), registers the interface in UVM's config database, and calls `run_test()`.
-
-2. **UVM builds the test environment** (`riscv_env`): a sequencer, driver, monitor, scoreboard, and coverage collector are created and wired together.
-
-3. **A sequence generates instructions.** Two sequences exist:
-   - `riscv_directed_seq` — a small, hand-written, predictable program (some ADDs/SUBs, a store+load round trip, a branch, ending in `ecall`).
-   - `riscv_random_seq` — randomly picks from 8 categories of instruction patterns (forwarding hazards, load-use hazards, taken/not-taken branches, JAL jumps, etc.) and chains 25 of them together, ending in `ecall`. This is what actually stresses the pipeline's hazard logic.
-
-4. **The driver loads the program.** It clears memory, writes the generated instructions into instruction memory, pre-loads some known values into data memory, then pulses reset to start the CPU running. It waits until the CPU halts (hits the `ecall`) or times out.
-
-5. **The CPU executes, cycle by cycle**, fetching from `imem`, decoding, forwarding/stalling as needed, executing in the ALU, accessing `dmem` for loads/stores, and writing results back to its register file — exactly like a real pipelined processor.
-
-6. **The monitor watches the `retire_*` signals** — these fire every time an instruction completes — and packages each retirement (PC, instruction, destination register, result, trap flag) into an item.
-
-7. **The scoreboard re-derives the expected result independently**, using its own copy of the register file and memory plus the instruction's opcode/funct3/funct7 fields, and compares it field-by-field against what the real CPU produced (PC, register-write-enable, write data, trap flag). Any mismatch is logged as a UVM error with full context.
-
-8. **The coverage collector tallies** which opcodes, funct3 codes, and register-write/trap combinations were actually seen, so you know whether the random testing was thorough enough (target: 90%+ functional coverage).
-
-9. **At the end of the run**, the scoreboard reports pass/fail counts and the coverage collector reports the final percentage — that's your pass/fail verdict for the whole core.
-
-10. Inside `riscv_core.sv` itself there are also **runtime SystemVerilog assertions** (x0 always stays zero, PC redirects land on the right target, load-use stalls actually freeze the pipeline) that fire independently of the UVM scoreboard, as a second safety net.
-
+    style IF fill:#dff5ff,stroke:#1e90ff,color:#000
+    style ID fill:#e6f9e6,stroke:#2ecc71,color:#000
+    style EX fill:#fff3cd,stroke:#e6a700,color:#000
+    style MEM fill:#ffe6f0,stroke:#e6399b,color:#000
+    style WB fill:#f0e6ff,stroke:#9b59b6,color:#000
 ```
-tb_top.sv
-   └── instantiates cpu_mem_if + riscv_core, starts UVM
-        └── riscv_env
-             ├── sequence (directed or random) → generates instruction list
-             ├── driver   → loads instructions into imem, resets CPU, runs until halt
-             ├── riscv_core (DUT) → actually executes the pipeline
-             ├── monitor  → watches retire_* signals, packages into items
-             ├── scoreboard → re-computes expected result, compares, reports PASS/FAIL
-             └── coverage → tracks which instruction types were exercised
+
+This is roughly **5x faster** than doing one instruction at a time — but it creates a new headache: what if instruction #2 needs an answer that instruction #1 hasn't finished computing yet?
+
+---
+
+## ⚠️ Concept #2 — Hazards (when the assembly line trips over itself)
+
+### 🔁 Data hazard → fixed with **forwarding**
+
+> *"I need the total you just calculated — don't make me wait for you to write it down, just shout it to me directly."*
+
+```mermaid
+flowchart LR
+    I1["Instruction A\nADD x3, x1, x2"] -->|"result needed\nimmediately"| I2["Instruction B\nXOR x4, x3, x1"]
+    I1 -.->|"⚡ forwarded straight from\nEXECUTE/MEMORY stage,\nskipping the register file"| I2
+
+    style I1 fill:#fff3cd,stroke:#e6a700,color:#000
+    style I2 fill:#dff5ff,stroke:#1e90ff,color:#000
 ```
+
+### ⏸️ Load-use hazard → fixed with a **1-cycle stall**
+
+> *"That number is in a box on a shelf across the warehouse — I physically can't get it to you instantly. Wait one second."*
+
+A value coming from memory (a `load`) isn't ready in time to forward, so the pipeline freezes the next instruction for exactly one cycle until the loaded value arrives.
+
+### 🔀 Control hazard → fixed with **flush + redirect**
+
+> *"Oops, you guessed the CPU would keep going straight, but it just took a detour (branch/jump). Throw away what you started fetching and go the right way instead."*
+
+```mermaid
+flowchart LR
+    BR["🔀 Branch/Jump\nresolved in EXECUTE"] --> DEC{Branch taken?}
+    DEC -->|No| CONT["✅ Keep going,\nnothing wasted"]
+    DEC -->|Yes| FLUSH["🗑️ Flush the\nwrongly-fetched instruction"]
+    FLUSH --> JUMP["📍 Redirect PC to\nthe correct target"]
+
+    style BR fill:#fff3cd,stroke:#e6a700,color:#000
+    style CONT fill:#d4f8d4,stroke:#2ecc71,color:#000
+    style FLUSH fill:#ffd6d6,stroke:#e74c3c,color:#000
+    style JUMP fill:#dff5ff,stroke:#1e90ff,color:#000
+```
+
+---
+
+## 🛑 Concept #3 — Exceptions (knowing when to stop)
+
+If the CPU is handed a nonsense instruction, or hits an `ecall` (a deliberate "I'm done" signal), it doesn't crash messily — it cleanly raises a `trap`, stops retiring new instructions, and halts. Think of it as the factory worker calmly putting down its tools instead of jamming the whole line.
+
+---
+
+## 🕵️ Concept #4 — UVM: the robotic inspector, piece by piece
+
+UVM (**Universal Verification Methodology**) is just a standard way of structuring a "checker" out of reusable Lego-like blocks:
+
+```mermaid
+flowchart TB
+    SEQ["📜 Sequence\nWrites the test program\n(directed or random)"] --> SQR["🚦 Sequencer\nQueues it up"]
+    SQR --> DRV["🚗 Driver\nLoads program into memory,\npresses reset, runs the CPU"]
+    DRV --> DUT["🏭 riscv_core\n(the CPU being tested)"]
+    DUT --> MON["👀 Monitor\nWatches every completed\ninstruction (retire_*)"]
+    MON --> SCB["⚖️ Scoreboard\nRe-does the math itself,\ncompares answers"]
+    MON --> COV["📊 Coverage\nTallies which instruction\ntypes were tested"]
+    SCB --> RESULT{"Match?"}
+    RESULT -->|Yes| PASS["🟢 PASS"]
+    RESULT -->|No| FAIL["🔴 FAIL\n+ pc, instruction,\nexpected vs actual"]
+
+    style SEQ fill:#f0e6ff,stroke:#9b59b6,color:#000
+    style SQR fill:#f0e6ff,stroke:#9b59b6,color:#000
+    style DRV fill:#dff5ff,stroke:#1e90ff,color:#000
+    style DUT fill:#fff3cd,stroke:#e6a700,color:#000
+    style MON fill:#ffe6f0,stroke:#e6399b,color:#000
+    style SCB fill:#e6f9e6,stroke:#2ecc71,color:#000
+    style COV fill:#e6f9e6,stroke:#2ecc71,color:#000
+    style PASS fill:#d4f8d4,stroke:#2ecc71,color:#000
+    style FAIL fill:#ffd6d6,stroke:#e74c3c,color:#000
+```
+
+| Block | Job, in one sentence |
+|---|---|
+| 📜 **Sequence** | Decides *what program* to run — either a small fixed one (`riscv_directed_seq`) or 25 randomly chosen instruction patterns (`riscv_random_seq`) designed to specifically trigger hazards. |
+| 🚦 **Sequencer** | A queue/traffic controller between the sequence and the driver. |
+| 🚗 **Driver** | Actually loads the instructions into memory, resets the CPU, and lets it run until it halts or times out. |
+| 👀 **Monitor** | Silently watches the CPU's output pins — every time an instruction "retires" (finishes), it records what happened. |
+| ⚖️ **Scoreboard** | The judge. Keeps its *own* simple, independent model of the registers and memory, written separately from the real CPU. Re-computes what *should* have happened, and compares it field-by-field with what really happened. |
+| 📊 **Coverage** | A checklist tracker — makes sure the random testing actually exercised every instruction type, not just the easy ones. Target: 90%+. |
+
+---
+
+## 🔄 Full end-to-end flow
+
+```mermaid
+sequenceDiagram
+    participant TB as tb_top.sv
+    participant ENV as UVM Environment
+    participant SEQ as Sequence
+    participant DRV as Driver
+    participant CPU as riscv_core (DUT)
+    participant MON as Monitor
+    participant SCB as Scoreboard
+
+    TB->>ENV: build & connect all components
+    ENV->>SEQ: start sequence
+    SEQ->>DRV: hand over instruction list
+    DRV->>CPU: load instructions + data, pulse reset
+    loop every clock cycle
+        CPU->>CPU: Fetch → Decode → Execute → Memory → Writeback
+        CPU-->>MON: instruction retires (pc, result, trap)
+        MON->>SCB: forward retirement info
+        SCB->>SCB: independently recompute expected result
+        SCB-->>SCB: compare → log PASS or FAIL
+    end
+    CPU-->>DRV: halted (hit ecall)
+    DRV->>ENV: item_done
+    SCB->>TB: final report — total PASS / FAIL
+    Note over SCB,TB: 📊 Coverage report also printed here
+```
+
+---
+
+## 🧩 The instruction set this CPU understands
+
+| Category | Instructions | What it does |
+|---|---|---|
+| ➕ Arithmetic / Logic | `ADD`, `SUB`, `AND`, `OR`, `XOR` | Combine two register values |
+| ➕ Immediate | `ADDI` | Add a constant baked into the instruction |
+| 📥 Memory | `LW` (load word) | Read 4 bytes from memory into a register |
+| 📤 Memory | `SW` (store word) | Write a register's value into memory |
+| 🔀 Branch | `BEQ`, `BNE` | Jump elsewhere *if* two registers are equal / not equal |
+| 🦘 Jump | `JAL` | Unconditionally jump, saving the return address |
+| 🛑 System | `ECALL` | Cleanly halt the CPU |
+
+A register named **`x0` is hard-wired to always be `0`** — no matter what you try to write into it, it stays zero. (This is a real RISC-V rule, and there's a dedicated assertion in `riscv_core.sv` that checks it every single cycle.)
+
+---
+
+## 🛡️ Built-in safety nets (assertions)
+
+Even on top of the UVM scoreboard, `riscv_core.sv` carries live, always-on checks during simulation:
+
+- ✅ `x0` never becomes non-zero.
+- ✅ When a branch/jump redirects the PC, next cycle's PC *must* equal that exact target.
+- ✅ During a load-use stall, the PC freezes for exactly one cycle.
+- ✅ During a load-use stall, the fetched instruction also stays frozen (doesn't silently change underneath the stall).
+
+Think of these as smoke detectors wired directly into the factory floor — independent of the inspector, and impossible to miss.
+
+---
+
+## 🎯 Why build this at all?
+
+This is a hands-on way to learn how real CPUs work under the hood — not by reading about pipelining and hazards in a textbook, but by building the exact mechanisms (forwarding paths, stall logic, branch flushing) and then proving, instruction by instruction, that they actually work. It mirrors how real silicon teams verify chips before they're ever manufactured: build the design, then build an independent judge that's smarter than blind trust.
