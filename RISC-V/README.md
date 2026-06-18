@@ -1,24 +1,75 @@
+<div align="center">
+
 # 🧠 RISC-V 5-Stage Pipelined CPU
 
-### *Built from scratch in SystemVerilog — and proven correct with a UVM testbench*
+### 🎓 *A friendly, no-experience-needed tour of a real CPU — built in SystemVerilog, proven correct with UVM*
 
 ![Language](https://img.shields.io/badge/Language-SystemVerilog-1e90ff?style=for-the-badge)
 ![ISA](https://img.shields.io/badge/ISA-RISC--V%20(RV32I)-orange?style=for-the-badge)
 ![Verification](https://img.shields.io/badge/Verification-UVM-9b59b6?style=for-the-badge)
 ![Status](https://img.shields.io/badge/Status-Self--Checking%20%26%20Passing-2ecc71?style=for-the-badge)
+![Beginner Friendly](https://img.shields.io/badge/Reading%20Level-Beginner%20Friendly-ff69b4?style=for-the-badge)
+![Diagrams](https://img.shields.io/badge/Diagrams-25%2B-00bcd4?style=for-the-badge)
+
+</div>
 
 ---
 
-## 🪄 Explain it like I'm not an engineer
+## 👋 Hi! Pull up a chair — let's learn this together
 
-Imagine a CPU as a **tiny, very literal-minded factory worker**. You hand it instructions written as patterns of 1s and 0s, and it does *exactly* what they say — add these two numbers, save this value, jump somewhere else if two numbers are equal.
+> [!TIP]
+> **You do not need to know hardware, chip design, or SystemVerilog to read this.** Every concept here is taught from zero, the way a teacher would explain it on a whiteboard — with a story, then a picture, then (only once you're comfy) a peek at the real code.
 
-This repository contains:
+Think of me as a teacher sitting next to you, and this README as our whiteboard. We're going to build up your understanding **one small idea at a time**:
+
+```mermaid
+flowchart LR
+    A["😊 You\n(curious, zero hardware\nbackground)"] --> B["📖 Part 1\nThe Big Picture\n(5 min read)"]
+    B --> C["🧱 Part 2, §0\nTiny Foundations\n(bits, registers, clocks)"]
+    C --> D["🔬 Part 2, §1-17\nThe Deep Dive\n(every mechanism, slowly)"]
+    D --> E["🎮 Quick Check\nTest yourself!"]
+    E --> F["🎉 You understand\nhow a real CPU\nis built AND tested!"]
+
+    style A fill:#fff9e6,stroke:#e6a700,color:#000
+    style B fill:#dff5ff,stroke:#1e90ff,color:#000
+    style C fill:#e6f9e6,stroke:#2ecc71,color:#000
+    style D fill:#f0e6ff,stroke:#9b59b6,color:#000
+    style E fill:#ffe6f0,stroke:#e6399b,color:#000
+    style F fill:#d4f8d4,stroke:#2ecc71,color:#000
+```
+
+### 🎨 How to read the colors in this guide
+
+Every diagram below uses the **same color language**, so once you learn it here, every picture in this document becomes instantly readable:
+
+```mermaid
+flowchart LR
+    BLUE["🔵 Blue\nInformation flowing in\n(instructions, addresses, data)"]
+    YELLOW["🟡 Yellow / Orange\nSomething is being\nprocessed or computed"]
+    GREEN["🟢 Green\nA good outcome —\nsuccess, pass, correct"]
+    PINK["🌸 Pink\nWatching / observing\n(monitors, memory access)"]
+    PURPLE["🟣 Purple\nThe verification /\ntesting world"]
+    RED["🔴 Red\nDanger, error, or\nsomething being discarded"]
+
+    style BLUE fill:#dff5ff,stroke:#1e90ff,color:#000
+    style YELLOW fill:#fff3cd,stroke:#e6a700,color:#000
+    style GREEN fill:#d4f8d4,stroke:#2ecc71,color:#000
+    style PINK fill:#ffe6f0,stroke:#e6399b,color:#000
+    style PURPLE fill:#f0e6ff,stroke:#9b59b6,color:#000
+    style RED fill:#ffd6d6,stroke:#e74c3c,color:#000
+```
+
+## 🪄 Explain it like I'm 10 years old
+
+Imagine a CPU as a **tiny, very literal-minded factory worker**. You hand it instructions written as patterns of 1s and 0s, and it does *exactly* what they say — nothing more, nothing less: add these two numbers, save this value, jump somewhere else if two numbers are equal. It never gets bored, never makes a typo, and never improvises.
+
+This repository contains **two halves of one story**:
 
 1. 🏭 **A CPU** (`riscv_core.sv`) — the actual "factory worker" that reads instructions and executes them, five at a time, assembly-line style.
 2. 🕵️ **A robotic inspector** (the UVM testbench) — that watches everything the factory worker does, independently re-does the math itself, and raises an alarm the instant the two disagree.
 
-If you've ever double-checked a calculator's answer by doing the sum on paper yourself — that's exactly what the inspector does, every single instruction, automatically, thousands of times a second.
+> [!NOTE]
+> Have you ever checked a calculator's answer by doing the sum on paper yourself? That's *exactly* what the inspector does here — except it re-checks **every single instruction**, automatically, thousands of times a second, and never gets tired of double-checking.
 
 ---
 
@@ -239,6 +290,10 @@ This is a hands-on way to learn how real CPUs work under the hood — not by rea
 
 ### 🧭 Table of contents
 
+**🧱 Warm-up**
+0. [Tiny foundations — bits, registers, memory, and the clock](#0-tiny-foundations--bits-registers-memory-and-the-clock)
+
+**⚙️ How the CPU itself works**
 1. [The 5 stages, in depth](#1-the-5-stages-in-depth)
 2. [Pipeline registers — the conveyor belts between stages](#2-pipeline-registers--the-conveyor-belts-between-stages)
 3. [Reading registers & the register file](#3-reading-registers--the-register-file)
@@ -249,13 +304,105 @@ This is a hands-on way to learn how real CPUs work under the hood — not by rea
 8. [Memory ordering](#8-memory-ordering)
 9. [Exception handling](#9-exception-handling)
 10. [Write-back, in depth](#10-write-back-in-depth)
+
+**🛡️ How we prove it's correct**
 11. [Assertions, in depth](#11-assertions-in-depth)
 12. [Functional coverage, in depth](#12-functional-coverage-in-depth)
 13. [The UVM testbench, component by component](#13-the-uvm-testbench-component-by-component)
 14. [The directed test, instruction by instruction](#14-the-directed-test-instruction-by-instruction)
 15. [The random test — all 8 hazard patterns explained](#15-the-random-test--all-8-hazard-patterns-explained)
 16. [A full worked example — one pipeline, cycle by cycle](#16-a-full-worked-example--one-pipeline-cycle-by-cycle)
-17. [Glossary](#17-glossary)
+
+**🎮 Wrap-up**
+17. [Quick check — test yourself!](#quick-check--test-yourself)
+18. [Glossary](#18-glossary)
+
+---
+
+## 0. Tiny foundations — bits, registers, memory, and the clock
+
+> [!IMPORTANT]
+> If words like "register," "clock cycle," or "binary" already feel comfortable, skip straight to [§1](#1-the-5-stages-in-depth). If not, stay right here — five minutes here will make *everything* below click much faster.
+
+### 🔢 What's a "bit," and why does the CPU only speak in 1s and 0s?
+
+A **bit** is the smallest piece of information possible — it can only ever be one of two things: **0** or **1**. Think of it as a single light switch: off (0) or on (1). A CPU is built entirely out of tiny electronic switches, so it can *only* ever store and move around patterns of 0s and 1s — it has no idea what a "letter" or a "number" is, except as a pattern of switches.
+
+```mermaid
+flowchart LR
+    B1["💡 0"] --- B2["💡 1"] --- B3["💡 0"] --- B4["💡 0"] --- B5["💡 1"] --- B6["💡 1"] --- B7["💡 0"] --- B8["💡 1"]
+    GROUP["8 of these bits\nin a row = 1 BYTE"]
+    B8 -.-> GROUP
+
+    style B1 fill:#dff5ff,stroke:#1e90ff,color:#000
+    style B2 fill:#fff3cd,stroke:#e6a700,color:#000
+    style B3 fill:#dff5ff,stroke:#1e90ff,color:#000
+    style B4 fill:#dff5ff,stroke:#1e90ff,color:#000
+    style B5 fill:#fff3cd,stroke:#e6a700,color:#000
+    style B6 fill:#fff3cd,stroke:#e6a700,color:#000
+    style B7 fill:#dff5ff,stroke:#1e90ff,color:#000
+    style B8 fill:#fff3cd,stroke:#e6a700,color:#000
+    style GROUP fill:#f0e6ff,stroke:#9b59b6,color:#000
+```
+
+This whole CPU works with groups of **32 bits at a time** (called a **word**) — every instruction is 32 bits, every register holds 32 bits, every memory address points at 32 bits. You never need to do binary math by hand to follow this guide — just remember: **everything here is secretly a long row of light switches**, and different *patterns* of switches mean different things (sometimes a number, sometimes an instruction, sometimes an address) depending on context.
+
+### 📦 What's a "register"?
+
+A **register** is just a tiny, named storage box that holds exactly one 32-bit number, and can be read or overwritten almost instantly (much faster than memory). This CPU has **32 of them**, named `x0` through `x31` — think of them as 32 small lockers right next to the factory worker's hands, so close that grabbing a value from one costs essentially no time at all.
+
+```mermaid
+flowchart TB
+    subgraph RF["📦 The Register File — 32 lockers"]
+    direction LR
+        x0["x0\n🔒 always 0"]
+        x1["x1\n10"]
+        x2["x2\n7"]
+        x3["x3\n..."]
+        dots["..."]
+        x31["x31\n..."]
+    end
+
+    style RF fill:#f8f8f8,stroke:#999,color:#000
+    style x0 fill:#ffd6d6,stroke:#e74c3c,color:#000
+    style x1 fill:#dff5ff,stroke:#1e90ff,color:#000
+    style x2 fill:#dff5ff,stroke:#1e90ff,color:#000
+```
+
+### 🗄️ What's "memory," and how is it different from a register?
+
+If registers are lockers right next to the worker's hands, **memory** is a big warehouse shelf, further away — it can hold *far* more data (this project's toy memory holds 256 words), but reaching it takes longer. That's why a CPU always pulls data into registers first, works on it there, and only goes to memory when it specifically needs to `load` (read) or `store` (write) something.
+
+```mermaid
+flowchart LR
+    REGS["📦 Registers\n(32 lockers, right at hand,\ninstant access)"] <-->|"LOAD ⬅️ / STORE ➡️"| MEM["🗄️ Memory\n(256-word warehouse shelf,\na little further away)"]
+
+    style REGS fill:#dff5ff,stroke:#1e90ff,color:#000
+    style MEM fill:#ffe6f0,stroke:#e6399b,color:#000
+```
+
+### ⏱️ What's a "clock cycle"?
+
+Every action in this CPU happens in lockstep with a **clock** — an electrical heartbeat that ticks at a steady rate (`always #5 clk = ~clk;` in [tb_top.sv](tb_top.sv) — flips every 5 nanoseconds). Nothing "happens gradually" inside this design; instead, on every single tick, every storage element (registers, pipeline latches) is allowed to update **once**, all at the same instant, then everything holds perfectly still until the next tick.
+
+```mermaid
+flowchart LR
+    T1["⏱️ Tick 1"] --> T2["⏱️ Tick 2"] --> T3["⏱️ Tick 3"] --> T4["⏱️ Tick 4"] --> DOTS["..."]
+    T1 -.-> N1["Everything updates\nonce, simultaneously"]
+    T2 -.-> N2["Everything updates\nonce, simultaneously"]
+
+    style T1 fill:#fff3cd,stroke:#e6a700,color:#000
+    style T2 fill:#fff3cd,stroke:#e6a700,color:#000
+    style T3 fill:#fff3cd,stroke:#e6a700,color:#000
+    style T4 fill:#fff3cd,stroke:#e6a700,color:#000
+    style N1 fill:#e6f9e6,stroke:#2ecc71,color:#000
+    style N2 fill:#e6f9e6,stroke:#2ecc71,color:#000
+```
+
+This is *why* this whole document keeps talking about "cycle 1, cycle 2, cycle 3..." — a cycle is simply **one tick of this heartbeat**, and it's the basic unit of time every diagram below measures things in.
+
+> [!TIP]
+> **🎓 In simple words:** A CPU is a box of light-switch patterns (bits), with 32 fast personal lockers (registers) and one big slower shelf (memory), and it only ever moves on a steady drumbeat (the clock). Keep these four words — **bit, register, memory, cycle** — in your back pocket; everything from here on just combines them in clever ways.
 
 ---
 
@@ -393,6 +540,9 @@ end
 ```
 This is the very last thing that happens to an instruction — once this line executes, the instruction's effects are now **permanently visible** to every future instruction via a normal register read. Before this point, only *forwarding* (a temporary shortcut, see [§5](#5-forwarding-in-depth)) could see the result.
 
+> [!TIP]
+> **🎓 In simple words:** Every instruction walks through the same 5-room hallway — **Fetch** (grab it), **Decode** (understand it), **Execute** (do the math), **Memory** (touch the warehouse shelf if needed), **Writeback** (save the answer). Five instructions are always mid-hallway at once, each in a different room — that overlap is *the entire reason* this CPU is fast, and also the entire reason the next few sections exist (overlap creates problems that a single-room CPU would never have).
+
 ---
 
 ## 2. Pipeline registers — the conveyor belts between stages
@@ -425,6 +575,9 @@ Each one is just a bundle of flip-flops that gets updated on every `posedge clk`
 **Why carry `valid` alongside everything else?** Because a pipeline stage can be physically occupied by a "bubble" — a fake, do-nothing instruction inserted because of a stall, flush, or just because the pipeline hasn't filled up yet (e.g. right after reset). The `*_valid` bit is how every stage tells the next one *"ignore everything else I'm carrying, there's no real instruction here."* You'll see this pattern constantly: `if (mem_wb_valid && mem_wb_reg_we && ...)`. Every side effect (register write, memory write, retirement) is gated by some `*_valid` bit upstream of it.
 
 **Why is a "bubble" encoded as the instruction `0000_0013` (which is `ADDI x0, x0, 0` — a real, harmless RISC-V no-op)?** So that even if a `valid` bit is accidentally misread somewhere, the worst that happens is a meaningless "add zero to zero and throw it away" — not a crash or an illegal-instruction trap. It's a safety-by-construction choice, visible everywhere a register gets reset, e.g. `if_id_instr <= 32'h0000_0013;`.
+
+> [!TIP]
+> **🎓 In simple words:** Between every two rooms of the hallway sits a little clipboard (a pipeline register) that writes down everything about the instruction passing through, so the next room knows what to do — including a tiny "is this clipboard even real, or just blank paper?" checkbox (`valid`). That checkbox is how empty rooms (bubbles) don't accidentally get treated like real instructions.
 
 ---
 
@@ -466,6 +619,9 @@ endfunction
 ```
 This is technically the **first and simplest forwarding path** in the whole design — it forwards from the Writeback stage directly into Decode's register read, so that a register read always sees the most up-to-date value, even one that hasn't been physically written into the array yet. The remaining forwarding paths (described in [§5](#5-forwarding-in-depth)) handle the other cases, where the consuming instruction is sitting in the *Execute* stage instead of Decode.
 
+> [!TIP]
+> **🎓 In simple words:** The register file is 32 personal lockers. Locker `x0` is glued shut at the value zero, forever. And whenever someone peeks into a locker, they get a tiny sneak preview of any value that's *about* to be put there this very cycle — so nobody ever reads "yesterday's news" by accident.
+
 ---
 
 ## 4. Data dependencies & the RAW hazard problem
@@ -500,6 +656,9 @@ flowchart TD
 ```
 
 The next two sections explain each fix in full detail.
+
+> [!WARNING]
+> **🎓 In simple words:** Pipelining means several instructions are mid-flight together — so if instruction #2 needs an answer instruction #1 hasn't finished yet, naively reading too early gives a **wrong answer**, silently. This is the single biggest danger pipelining introduces, and the next two sections are entirely about defusing it.
 
 ---
 
@@ -568,6 +727,9 @@ Revisiting the same `ADD`/`XOR` example from [§4](#4-data-dependencies--the-raw
 | 5 | WB (x3 written to regfile — now "officially" true) | MEM | |
 
 Notice: `XOR` gets the *right* answer in cycle 4, a full cycle before `ADD`'s result is even written to the register file in cycle 5. **No stalling, no wasted cycles, no wrong answers** — that's the whole payoff of forwarding.
+
+> [!TIP]
+> **🎓 In simple words:** Forwarding is just a shortcut wire that says *"don't wait for me to officially write this down — here, take it directly from my hand."* It's like passing a note across the room instead of mailing it and waiting for delivery. Free speed, zero cost, as long as the value already physically exists somewhere.
 
 ---
 
@@ -642,6 +804,9 @@ From the sequential block ([riscv_core.sv:381-433](riscv_core.sv#L381-L433)), wh
 The cost: **one wasted cycle ("bubble")** every time a load's result is used by the very next instruction. This is the textbook tradeoff of a 5-stage in-order pipeline — and exactly why compilers for real RISC-V chips try to reorder instructions to put something unrelated right after a load, if they can.
 
 Two of the always-on assertions in `riscv_core.sv` exist specifically to police this mechanism (see [§11](#11-assertions-in-depth)): one proves `pc` truly freezes during a stall, the other proves `if_id_instr` truly freezes too.
+
+> [!TIP]
+> **🎓 In simple words:** A `LOAD` is the one case where even the fastest shortcut wire isn't fast enough — the value is still on its way back from the warehouse shelf. So instead of a wrong answer, the CPU politely says *"hang on one second"* to the next instruction, freezes everything for exactly one tick, then lets it through once the value has actually arrived. One short pause beats a wrong answer every time.
 
 ---
 
@@ -738,6 +903,9 @@ Notice: when a branch isn't taken, the pipeline never even notices anything spec
 
 There's one more redirect-like case: `ex_exception_now` (an illegal instruction or `ecall` reaching EX). It also flushes IF/ID, but it deliberately does **not** change `pc` (`pc <= pc;`) — because once an exception is in flight, the CPU is on its way to halting altogether (see [§9](#9-exception-handling)), not jumping anywhere new.
 
+> [!TIP]
+> **🎓 In simple words:** The CPU is an optimist — it always guesses "this branch won't be taken" and keeps walking straight ahead without waiting to find out. Most of the time it's right and loses no time at all. When it's wrong, it just throws away the one wrong guess it already started on and steps onto the correct path — a 1-cycle "oops, my bad" instead of a costly stop-and-think.
+
 ---
 
 ## 8. Memory ordering
@@ -772,6 +940,9 @@ A few concrete guarantees this design relies on:
 - **The scoreboard's reference model relies on exactly this ordering** — it updates its own shadow memory (`ref_mem`) the instant a store retires, in the same program order the real CPU retires instructions in, which is only valid *because* the real CPU is provably in-order (see [§13](#13-the-uvm-testbench-component-by-component)).
 
 **What this design does *not* have to worry about** (because of the in-order, single-port guarantees above): store-to-load forwarding bugs, out-of-order completion, multiple outstanding memory transactions, or cache coherency — all real headaches in bigger CPUs, all sidestepped here by being deliberately simple.
+
+> [!TIP]
+> **🎓 In simple words:** Because this CPU only ever does *one thing at a time, in order*, memory never gets confused about "who wrote what when." It's like a single-file line at a shop counter — everyone is served in the exact order they arrived, so there's never an argument about whose turn it was.
 
 ---
 
@@ -825,6 +996,9 @@ Once `halted` latches to `1`, it **stays `1` forever** (there's no code path tha
 
 **Note the subtlety in `retire_valid`:** `assign retire_valid = mem_wb_valid && !halted;` — the *excepting* instruction itself is deliberately **not** counted as "retired" (it doesn't get scored by the scoreboard as a normal instruction; instead its `trap_valid` pulse is what the scoreboard checks). This avoids double-counting: one pulse (`trap_valid`) marks "an exception happened here," rather than trying to also pretend the illegal instruction "completed normally."
 
+> [!WARNING]
+> **🎓 In simple words:** When the CPU sees an instruction it doesn't understand (or hits an `ecall`), it doesn't crash or freeze in confusion — it raises its hand, says "I can't do this safely," cleanly stops, and tells the outside world exactly where it stopped. That's all "exception handling" means here: failing **politely and predictably** instead of failing silently or randomly.
+
 ---
 
 ## 10. Write-back, in depth
@@ -865,6 +1039,9 @@ end
 All four conditions must hold simultaneously: there must be a *real* instruction here (`mem_wb_valid` — not a bubble), it must actually be the kind of instruction that writes a register (`mem_wb_reg_we` — e.g. not `SW` or `BEQ`), its destination must not be `x0`, and it must not have triggered an exception.
 
 **Why is `retire_valid`/`retire_*` exposed as a separate set of top-level ports** ([riscv_core.sv:117-122](riscv_core.sv#L117-L122)) instead of making the testbench peek directly at `regs[]`? Because this mirrors how real verification works: the **only** legitimate way to observe a CPU's behavior from outside is through its architecturally-visible interface — a "this instruction just completed, here's what it did" signal — never by reaching into internal implementation details. It also means the monitor only has to watch a handful of clean signals instead of reverse-engineering pipeline internals.
+
+> [!TIP]
+> **🎓 In simple words:** Write-back is the CPU finally saying "okay, made it through all 5 stages — let me actually save this result." Everything before this stage was just calculation; this is the one moment the result becomes permanent and visible to the rest of the program. Four safety checks all have to agree before that happens, so nothing gets written by accident.
 
 ---
 
@@ -947,6 +1124,9 @@ flowchart LR
 ```
 Assertions are a **second, independent safety net** — they catch *mechanism* bugs (the pipeline behaving incorrectly internally) even in cases where, by coincidence, the final architectural result still happens to come out correct for that particular test. This is exactly why real chip teams use both: a scoreboard alone can be "lucky," but a violated assertion never lies about what actually happened inside the design. The `final` block at the bottom of `riscv_core.sv` ([riscv_core.sv:497-504](riscv_core.sv#L497-L504)) also prints a small tally (`x0_check_count`, `redirect_check_count`, `stall_check_count`) at the end of every run — a quick sanity gauge of *how many times* each assertion's scenario was actually exercised, not just whether it passed.
 
+> [!NOTE]
+> **🎓 In simple words:** Assertions are tiny tireless watchdogs sitting inside the design itself, each one barking the instant a rule is broken — "hey, `x0` just changed!" — even if nobody was looking for that specific bug. The scoreboard checks *"did we get the right answer?"*; assertions check *"did we get there the right way?"* You want both.
+
 ---
 
 ## 12. Functional coverage, in depth
@@ -998,6 +1178,9 @@ else             `uvm_info("COVERAGE", "Coverage target achieved", UVM_LOW)
 `get_inst_coverage()` returns the percentage of *all* bins (across every coverpoint and the cross) that were hit at least once. 90% is a conventional "good enough" bar in real verification teams — chasing the last few percent (often genuinely-impossible combinations, like "an instruction that is simultaneously a store and writes a register," which can't happen by construction) usually isn't worth the effort. Coverage is reported once, at the very end of the run, in `report_phase` — by design, *after* all randomization is done, so it reflects the entire test's contribution, not a partial snapshot.
 
 **Why does this matter for a CPU specifically?** A random test could, by bad luck, generate 3,000 instructions that are all `ADD` and `ADDI` and never once try a `BNE` or a `store`. The scoreboard would report "100% pass" — technically true, but dangerously misleading, since huge parts of the design were never actually exercised. Coverage is what tells you whether a passing test suite is *trustworthy* or just *lucky*.
+
+> [!TIP]
+> **🎓 In simple words:** Passing tests only tells you "what we tried worked." Coverage tells you "here's what we actually tried." Without it, you could pass 100% of your tests while secretly never testing 80% of your chip — coverage is the report card that keeps that lie from happening.
 
 ---
 
@@ -1168,6 +1351,9 @@ flowchart LR
 
 `raise_objection()`/`drop_objection()` are what tell UVM's phasing engine *"don't end the run_phase yet, I'm still working"* / *"okay, I'm done now"* — without them, UVM would consider the test instantly finished before the sequence ever got a chance to run.
 
+> [!TIP]
+> **🎓 In simple words:** Think of the testbench as a tiny factory line: the **sequencer** writes the work orders, the **driver** actually loads the instructions into memory, the **monitor** watches everything happen and reports it, the **scoreboard** double-checks the math against its own private calculator, and **coverage** keeps a checklist of which kinds of instructions have been tried. Five specialists, one job each — much easier to trust than one giant tangled script.
+
 ---
 
 ## 14. The directed test, instruction by instruction
@@ -1189,6 +1375,9 @@ flowchart LR
 | 11 | `0x28` | `ECALL` | clean halt | `halted = 1` |
 
 **Final state, and exactly what the scoreboard will check against:** `x1=10, x2=7, x3=17, x4=10, x5=17, x6=27, x7=0 (unchanged), x8=123`, with `dmem[0]=17`. This single short program already exercises: immediate arithmetic, register-register ALU ops, a register forwarding chain (x3 feeds SUB one instruction later), a full store→load round trip through memory, a second forwarding chain (x5 feeds ADD immediately), a *taken* branch with a flush, and a clean halt — a deliberately dense, deterministic stress test packed into 11 instructions.
+
+> [!NOTE]
+> **🎓 In simple words:** The directed test is a hand-written "exam" with a known correct answer key — every register's final value is predicted in advance. If the CPU disagrees with the answer key even slightly, something is definitely broken. It's the most basic, most trustworthy kind of test there is.
 
 ---
 
@@ -1240,6 +1429,9 @@ flowchart TB
 
 **Why 8 specifically hand-curated patterns instead of pure unconstrained randomness?** This is a deliberate verification technique called **constrained-random testing**. Fully unconstrained random instructions would mostly generate *boring*, independent instructions with no hazards at all — statistically unlikely to stress the exact mechanisms that are hardest to get right. By constraining the randomness to 8 patterns that are *each guaranteed* to trigger a specific hazard, every single one of the 25 random picks per test run is guaranteed to be a meaningful test, while *which* pattern, *which* registers, and *which* immediates are used still varies randomly across runs — giving both reliability (you always test the hard cases) and breadth (you never test the exact same values twice).
 
+> [!TIP]
+> **🎓 In simple words:** Pure randomness is like shuffling a deck and hoping you draw something interesting — most of the time you won't. So instead, this test stacks the deck: it builds 8 little "trick plays" that are *guaranteed* to be tricky (forwarding, stalls, branches...), then randomly shuffles *which* trick play happens and with *which* numbers. Best of both worlds — always hard, never predictable.
+
 ---
 
 ## 16. A full worked example — one pipeline, cycle by cycle
@@ -1267,9 +1459,93 @@ Let's read what's actually happening at each interesting cycle:
 
 One more subtlety: because `pc` froze during the stall, the *next* instruction after this sequence (`BEQ`, see [§14](#14-the-directed-test-instruction-by-instruction)) also gets delayed by exactly one cycle — it's fetched twice (the second fetch is the one that "sticks"), landing in Decode at cycle 10 instead of cycle 9. The stall's cost ripples forward by exactly one cycle and then disappears — it never compounds or grows.
 
+> [!TIP]
+> **🎓 In simple words:** This is the whole book in one worked example — watch a handful of real instructions flow through all 5 stages, hit a real stall, take a real branch, and land on real final register values. If every other section made sense, this is where it all clicks together into one picture.
+
 ---
 
-## 17. Glossary
+## Quick check — test yourself! 🎮
+
+You made it through the whole deep dive — nice work. 🎉 Before you go, try these 8 quick questions. No pressure, no grading — just click each one open after you've made a guess and see how you did. If you get one "wrong," that's not a failure, that's just a sign of exactly which section is worth a second read.
+
+<details>
+<summary><strong>1. Why does the pipeline have exactly 5 stages instead of, say, 1 big stage?</strong></summary>
+
+<br>
+
+Splitting the work into 5 small stages (Fetch → Decode → Execute → Memory → Write-back) means a new instruction can start every single cycle instead of waiting for the previous one to fully finish — like a 5-station assembly line instead of one person building a whole car alone. See [§1](#1-the-5-stages-in-depth).
+
+</details>
+
+<details>
+<summary><strong>2. What is a "bubble," and why is it sometimes injected on purpose?</strong></summary>
+
+<br>
+
+A bubble is a fake "do-nothing" instruction inserted into the pipeline. It's injected on purpose during a stall (e.g. load-use hazard, [§6](#6-the-load-use-hazard--stalling-in-depth)) or a flush (branch/JAL redirect, [§7](#7-branching--control-flow-in-depth)) so that a real instruction doesn't get acted on before it's safe to do so.
+
+</details>
+
+<details>
+<summary><strong>3. What's the difference between a hazard and forwarding?</strong></summary>
+
+<br>
+
+A **hazard** is the *problem*: a later instruction needs a value that an earlier, still-in-flight instruction hasn't officially written back yet. **Forwarding** is the *fix*: a shortcut wire that hands the value over directly the moment it's computed, instead of waiting for the slow, official register-file write. See [§4](#4-data-dependencies--the-raw-hazard) and [§5](#5-forwarding-in-depth).
+
+</details>
+
+<details>
+<summary><strong>4. Why can't a load-use hazard be solved by forwarding alone — why does it need a stall too?</strong></summary>
+
+<br>
+
+Forwarding can only hand over a value that *already exists somewhere* in the pipeline. For a `LOAD`, the value is still on its way back from memory when the very next instruction needs it — it simply doesn't exist yet to forward. So the pipeline has no choice but to freeze for one cycle until the loaded value actually arrives. See [§6](#6-the-load-use-hazard--stalling-in-depth).
+
+</details>
+
+<details>
+<summary><strong>5. When the CPU guesses wrong about a branch, what actually happens?</strong></summary>
+
+<br>
+
+The one wrong-path instruction that was already fetched gets turned into a bubble (flushed), and the very next cycle, fetching restarts from the correct address. It costs exactly **1 wasted cycle** — no more, no less. See [§7](#7-branching--control-flow-in-depth).
+
+</details>
+
+<details>
+<summary><strong>6. What's the difference between what the scoreboard checks and what assertions check?</strong></summary>
+
+<br>
+
+The **scoreboard** checks the *final answer* — did this instruction produce the right register/memory value? **Assertions** check the *internal behavior* — did the pipeline follow its own rules along the way (e.g. did `x0` ever change, did `pc` truly freeze during a stall)? A design could get lucky and pass the scoreboard while still breaking an internal rule — assertions catch that. See [§11](#11-assertions-in-depth).
+
+</details>
+
+<details>
+<summary><strong>7. If all your tests pass, does that guarantee the CPU has no bugs?</strong></summary>
+
+<br>
+
+No! It only proves the bugs that your tests happened to *trigger* were caught. **Coverage** is what tells you whether your tests actually exercised every instruction, every hazard, every corner case — or whether you just got lucky and never tried the thing that would've exposed a bug. See [§12](#12-functional-coverage-in-depth).
+
+</details>
+
+<details>
+<summary><strong>8. Why does the testbench keep its own separate "shadow" copy of the registers and memory?</strong></summary>
+
+<br>
+
+So the checker can't accidentally "agree with a bug." If the scoreboard calculated expected results using the *same* logic as the CPU, a shared mistake in that logic would never be caught — both sides would confidently agree on the wrong answer. An independent reference model means the two sides can only match if the CPU is genuinely correct. See [§13](#13-the-uvm-testbench-component-by-component).
+
+</details>
+
+> [!IMPORTANT]
+> **🎓 If most of these felt familiar — congratulations, you now understand how a real CPU pipeline works *and* how professional engineers prove it's correct.** That's genuinely the same mental model used to verify chips that ship in real phones, laptops, and cars. Nicely done. 🎉
+
+---
+
+## 18. Glossary
 
 | Term | Meaning |
 |---|---|
